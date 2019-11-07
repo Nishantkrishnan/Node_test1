@@ -12,7 +12,7 @@ const pool = new Pool({
   port: envVariables.DB_PORT,
   max: envVariables.DB_MAX_POOL_SIZE,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 4000
+  connectionTimeoutMillis: 2000
 });
 
 // Expose method, log query, initiate trace etc at single point later on.
