@@ -1,142 +1,186 @@
 import { version } from "../../package.json";
 import { Router } from "express";
-
 export default ({ config, db }) => {
   let api = Router();
+  api.post("/binary", (req, res) => {
+    let { used,name, ref_id, position } = req.body;
+   const user_id = require("uuid/v1");
+   console.log(user_id, "id");
+    let arr1 = [];
+    let arr2=[];
 
-  api.get("/n_billingslap", (req, res) => {
-    //find id in company table and return the company   --------working
-    db.query("SELECT * from n_billingslap where flag=1", (err, response) => {
-      if (err) {
-        console.log(err.stack);
-      } else {
-        console.log(response.rows);
-        res.json({ "Nishant bill": response.rows });
-      }
+const   checkChildren = (used) =>{
+      arr2 = arr1.map(r => r.children);
+     console.log(arr2, "child");
+     let count=0;
+     arr2.forEach(i=> {
+       if(used == i){
+
+         count++;
+       }
+     })
+console.log(count,"CurrentCount")
+     if(count==0){
+       db.query(`INSERT into nodetest values ('${user_id()}', '${name}','${position}','${ref_id}', '${used}')`,(err, response) => {
+         if (err) {
+           console.log(err.stack);
+         } else {
+           console.log("No child present", response.rows);
+         }
+     });
+     }
+     else if(count==1){
+      let subId="";
+       arr1.forEach(j=> {
+         if(j.children == used && j.position != position){
+           db.query(`INSERT into nodetest values ('${user_id()}', '${name}', '${position}','${ref_id}','${used}')`,(err, response) => {
+             if (err) {
+               console.log(err.stack);
+             } else {
+               console.log("one child present", response.rows);
+             }
+         })
+         }
+         else if(j.children == used && j.position == position){
+          subId = j.user_id;
+          checkChildren(subId);
+         }
+       })
+     }
+     else{
+       let newArr=[];
+       let subId="";
+       arr1.forEach(j => {
+         if(j.children == used && j.position == position){
+           subId = j.user_id;
+           checkChildren(subId);
+         }
+       })
+     }
+   }
+   db.query(`select * from nodetest `, (err, response) => {
+    if (err) {
+      console.log(err.stack);
+    } else {
+      console.log(response.rows, "res");
+      arr1 = response.rows;
+       checkChildren(used);
+       res.json({response:"successful"})
+}
+});
+  });
+
+
+
+
+  api.get('/children', (req,res) => {
+    //fetching all children
+    let {user_id} = req.body;
+    console.log(req.body,"req");
+
+    let arr=[];
+    let ans=[];
+    const findChildren = (user_id) => {
+      let count=0;
+      let tempUserId='';
+      arr.forEach( i => {
+        if(user_id == i.children){
+        count++;
+        console.log(count,"count");
+       ans.push(i);
+        tempUserId = i.user_id;
+        console.log(tempUserId,"tempUserId");
+        findChildren(tempUserId); }
+        else {
+          console.log("nothing");
+        }
+      })
+     }
+    db.query(`select * from nodetest `, (err, response) => {
+     if (err) {
+       console.log(err.stack);
+     } else {
+       console.log(response.rows, "res");
+       arr = response.rows;
+       console.log(arr,"arr");
+       findChildren(user_id);
+       res.json({
+         children: ans
+       })
+    }
     });
+    }) ;
 
-    api.get("/n_billingslap/:prod_id", (req, res) => {
-      //find id in company table and return the company   -----working
-      console.log(req.params.prod_id, "prod_id");
-      db.query(
-        `SELECT * from n_billingslap where prod_id=${req.params.prod_id} and flag=1`,
-        (err, response) => {
-          if (err) {
-            console.log(err.stack);
-          } else {
-            console.log(response.rows);
-            res.json({ "Nishant bill": response.rows });
+
+
+    api.get('/user-cost', (req,res) => {
+      //finding total cost
+      let {user_id} = req.body;
+      let totalCost=0;
+      let count1=0;
+      let arr=[];
+      let arr2=[];
+      let arr1=[];
+      let leftArr=[];
+      let rightArr=[];
+      let arrrrrr = [];
+    
+      const findChildren = (user_id) => {
+        let count=0;
+        let tempUserId='';
+        arr.forEach( i => {
+          if(user_id == i.ref_id){
+          count++;
+          console.log(count,"count");
+          arrrrrr.push(i);
+          tempUserId = i.user_id;
+          console.log(tempUserId,"tempUserId");
+          findChildren(tempUserId); }
+          else {
+            console.log("nothing");
           }
-        }
+        })
+
+      }
+      db.query(`select * from nodetest `, (err, response) => {
+        if (err) {
+          console.log(err.stack);
+        } else {
+          console.log(response.rows, "res");
+          arr = response.rows;
+          console.log(arr,"arr");
+
+          findChildren(user_id);
+     }
+
+          arrrrrr.forEach( child => {
+            console.log(child,"child");
+
+            if(child.children  && child.position=='left'){
+             leftArr.push(child);
+            }
+            if(child.children  && child.position=='Right') {
+             rightArr.push(child);
+            }
+          })
+          console.log(leftArr, "Arrrraaaayyyy");
+          console.log(rightArr , "RightAAAAA")
+
+          console.log(leftArr.length,rightArr.length,"length");
+
+          if(leftArr.length<=rightArr.length){
+            totalCost=leftArr.length*100;
+          }
+          else{
+            totalCost=rightArr.length*100;
+          }
+          res.json({
+            Cost: totalCost,right:rightArr.length,left:leftArr.length
+          })
+      }
       );
-    });
-  });
-  // perhaps expose some API metadata at the root
+      }) ;
 
-  api.post("/n_billingslap", (req, res) => {
-    //take company from req and insert into company table   ----working
 
-    const { id, prod_id, price, flag } = req.body;
-    console.log("body", req.body);
-    db.query(
-      `insert into n_billingslap values(${id},${prod_id},${price} ,${flag})`,
-      (err, response) => {
-        if (err) {
-          console.log(err.stack);
-        } else {
-          console.log(response.rows);
-          res.json({ status: "successfull", response: response.rows });
-        }
-      }
-    );
-  });
-
-  api.put("/n_billingslap/:prod_id", (req, res) => {
-    //updating is working  ------working
-    console.log("body", req.body);
-    const { id, price, flag, total } = req.body;
-    db.query(
-      `UPDATE n_billingslap SET id=${id}, price=${price},flag=${flag} ,total=${total} WHERE prod_id=${req.params.prod_id}`,
-      (err, response) => {
-        if (err) {
-          console.log(err.stack);
-        } else {
-          console.log(response.rows);
-          res.json({ status: "live", method: "Update" });
-        }
-      }
-    );
-  });
-
-  api.post("/estimation", (req, res) => {
-    //Task 1  ------working
-    console.log(req, "estimate");
-
-    const [id, quantity, prod_id] = req.body;
-    console.log("request", req.body);
-    req.body.map(reqname=>(
-
-    db.query(
-      ` select * from n_billingslap where prod_id=${reqname.prod_id} `,
-      (err, response) => {
-        if (err) {
-          console.log(err.stack);
-        } else {
-          console.log(prod_id, "rowsss");
-          let price1 = response.rows.map(res => res.price);
-          let quantity1 = reqname.quantity;
-          console.log(quantity1, "quantity");
-          console.log(price1,"price");
-          let estvalue = [price1 * quantity1];
-          console.log(estvalue, "estvar");
-          res.json({ status: estvalue, response: response.rows });
-        }
-      }
-    )
-  ))
-  });
-
-  api.delete("/n_billingslap/:prod_id", (req, res) => {
-    console.log("req", req.params);
-    //take company id from path and find the id and update flag   ------working
-    db.query(
-      `Update  n_billingslap SET flag =0 where prod_id=${req.params.prod_id}`,
-      (err, response) => {
-        if (err) {
-          console.log(err.stack);
-        } else {
-          console.log(response.rows);
-          res.json({ status: "live", method: "delete" });
-        }
-      }
-    );
-  });
   return api;
 };
-// api.post("/estimation", (req, res) => {
-//   //Task 1  ------working
-//   console.log(req, "estimate");
-//
-//   const [ id, quantity, prod_id]  = req.body;
-//   console.log("request", req.body);
-//
-// {req.body.map((rowname, id) =>
-//   console.log(rowname,"rows"),
-//     db.query(
-//       ` select * from n_billingslap where prod_id={rowname.prod_id} `,
-//       (err, response) => {
-//         if (err) {
-//           console.log(err.stack);
-//         } else {
-//         console.log(response.rows,"rowsss");
-//         let price1 = rowname.price;
-//         console.log(price1, "quantity");
-//         let estvalue = [price1 * quantity];
-//         console.log(estvalue, "estvar");
-//         res.json({ status: estvalue, response: response.rows });
-//         }
-//       }
-//     )
-//   )
-// }
-// });
